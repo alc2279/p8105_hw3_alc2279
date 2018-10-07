@@ -31,17 +31,19 @@ clarity of code will be assessed in Problems 1+ using the homework style rubric.
 This homework includes figures; the readability of your embedded plots (e.g. 
 font sizes, axis labels, titles) will be assessed in Problems 1+.
 
-# Problem 1
-
-## Part 1: Load the data
-This problem uses the BRFSS data. DO NOT include this dataset in your local data
-directory; instead, load the data from the  p8105.datasets package.
-
 ```{r}
+library(tidyverse)
 
+library(p8105.datasets)
+
+theme_set(theme_bw() + theme(legend.position = "bottom"))
 ```
 
-## Part 2: Tidy the data
+# Problem 1
+
+## Part 1: Load and tidy the data
+This problem uses the BRFSS data. DO NOT include this dataset in your local data
+directory; instead, load the data from the  p8105.datasets package.
 
 First, do some data cleaning:
 
@@ -51,10 +53,23 @@ First, do some data cleaning:
 * organize responses as a factor taking levels from “Excellent” to “Poor”
 
 ```{r}
+brfss_data = brfss_smart2010 %>% 
+  janitor::clean_names() %>% 
+  rename(state = locationabbr, state_county = locationdesc, proportion = data_value) %>% 
+  filter(topic == "Overall Health", 
+         response %in% c("Excellent", "Very good", "Good", "Fair", "Poor")) %>% 
+  select(-(class:question), -(confidence_limit_low:geo_location)) %>% 
+  mutate(response = forcats::fct_relevel(response)) %>% 
+  arrange(response)
 
+##don't actually need to filter by responses because when you group by, you see that the only response for overall health are excellent through poor, but keeping this in case the data changes and it is still a requirement by collaborators
+
+  
+##Question - only include excellent through poor? those are the only responses?
+##Question - does 'organize as factor...' mean to recode as a factor and then arrange in ascending order?
 ```
 
-## Part 3: Answer some questions
+## Part 2: Answer some questions
 
 Using this dataset, do or answer the following (commenting on the results of 
 each):
@@ -62,21 +77,41 @@ each):
 * In 2002, which states were observed at 7 locations?
 
 ```{r}
-
+brfss_data %>% 
+  filter(year == "2002") %>% 
+  group_by(state) %>% 
+  summarize(n_locations = n_distinct(state_county)) %>% 
+  filter(n_locations == 7) %>% 
+  pull(state)
 ```
 
 * Make a “spaghetti plot” that shows the number of observations in each state 
 from 2002 to 2010.
 
 ```{r}
+##brfss_data %>% 
+  ##group_by(state) %>% 
+  ##summarize(n_observations = n()) %>% 
+  ggplot(brfss_data, aes(x = year, y = sample_size, color = state)) + 
+    geom_line()
 
+##Question - wut. is going on with this graph.
 ```
 
 * Make a table showing, for the years 2002, 2006, and 2010, the mean and standard 
 deviation of the proportion of “Excellent” responses across locations in NY State.
 
 ```{r}
+brfss_data %>% 
+  group_by(state_county) %>% 
+  filter(year %in% c("2002", "2006", "2010"),
+         state == "NY",
+         response == "Excellent") %>%
+  summarize(excellent_mean = mean(proportion, na.rm = TRUE), 
+            excellent_sd = sd(proportion, na.rm = TRUE))
 
+##Question - group by location and year or just location?
+##pulling back NaN because there is only one point estimate; cannot calculate sd?
 ```
 
 * For each year and state, compute the average proportion in each response category 
@@ -85,7 +120,14 @@ for each response category separately, the distribution of these state-level
 averages over time.
 
 ```{r}
+brfss_data %>% 
+  group_by(year, state, response) %>% 
+  summarize(response_mean = mean(proportion, na.rm = TRUE)) %>% 
+  ##spread(key = response, value = response_mean) %>% 
+  ggplot(aes(x = response, y = response_mean)) + 
+    geom_boxplot()
 
+##Question - clarify what they're actually asking? did i do it?
 ```
 
 # Problem 2
@@ -96,7 +138,7 @@ data directory; instead, load the data from the p8105.datasets package (it’s
 called instacart).
 
 ```{r}
-
+instacart_data = instacart
 ```
 
 ## Part 2: EDA - Describe the data
@@ -146,11 +188,11 @@ human readers (i.e. produce a 2 x 7 table).
 
 ## Part 1: Load the data
 This problem uses the NY NOAA data. DO NOT include this dataset in your local 
-data directory; instead, load the data from the  p8105.datasets package (it’s 
+data directory; instead, load the data from the p8105.datasets package (it’s 
 called ny_noaa).
 
 ```{r}
-
+noaa_data = ny_noaa
 ```
 
 ## Part 2: EDA - Describe the data
