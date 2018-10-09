@@ -34,6 +34,8 @@ font sizes, axis labels, titles) will be assessed in Problems 1+.
 ```{r}
 library(tidyverse)
 
+library(DescTools
+
 library(p8105.datasets)
 
 theme_set(theme_bw() + theme(legend.position = "bottom"))
@@ -59,14 +61,12 @@ brfss_data = brfss_smart2010 %>%
   filter(topic == "Overall Health", 
          response %in% c("Excellent", "Very good", "Good", "Fair", "Poor")) %>% 
   select(-(class:question), -(confidence_limit_low:geo_location)) %>% 
-  mutate(response = forcats::fct_relevel(response)) %>% 
+  mutate(response = forcats::fct_relevel(response, c("Excellent", 
+                                                     "Very good", 
+                                                     "Good", 
+                                                     "Fair", 
+                                                     "Poor"))) %>% 
   arrange(response)
-
-##don't actually need to filter by responses because when you group by, you see that the only response for overall health are excellent through poor, but keeping this in case the data changes and it is still a requirement by collaborators
-
-  
-##Question - only include excellent through poor? those are the only responses?
-##Question - does 'organize as factor...' mean to recode as a factor and then arrange in ascending order?
 ```
 
 ## Part 2: Answer some questions
@@ -89,13 +89,11 @@ brfss_data %>%
 from 2002 to 2010.
 
 ```{r}
-##brfss_data %>% 
-  ##group_by(state) %>% 
-  ##summarize(n_observations = n()) %>% 
-  ggplot(brfss_data, aes(x = year, y = sample_size, color = state)) + 
+brfss_data %>% 
+  group_by(year, state) %>% 
+  summarize(n_locations = n_distinct(state_county)) %>% 
+  ggplot(aes(x = year, y = n_locations, color = state)) + 
     geom_line()
-
-##Question - wut. is going on with this graph.
 ```
 
 * Make a table showing, for the years 2002, 2006, and 2010, the mean and standard 
@@ -109,9 +107,6 @@ brfss_data %>%
          response == "Excellent") %>%
   summarize(excellent_mean = mean(proportion, na.rm = TRUE), 
             excellent_sd = sd(proportion, na.rm = TRUE))
-
-##Question - group by location and year or just location?
-##pulling back NaN because there is only one point estimate; cannot calculate sd?
 ```
 
 * For each year and state, compute the average proportion in each response category 
@@ -123,11 +118,9 @@ averages over time.
 brfss_data %>% 
   group_by(year, state, response) %>% 
   summarize(response_mean = mean(proportion, na.rm = TRUE)) %>% 
-  ##spread(key = response, value = response_mean) %>% 
-  ggplot(aes(x = response, y = response_mean)) + 
-    geom_boxplot()
-
-##Question - clarify what they're actually asking? did i do it?
+  ggplot(aes(x = year, y = response_mean)) + 
+    geom_violin(alpha = .5) +
+    facet_grid(~response)
 ```
 
 # Problem 2
@@ -138,7 +131,14 @@ data directory; instead, load the data from the p8105.datasets package (it’s
 called instacart).
 
 ```{r}
-instacart_data = instacart
+instacart_data = 
+  instacart %>% 
+  mutate(recode(order_dow, "mon" = 0, "tue" = 1, "wed" = 2, "thu" = 3, "fri" = 4, "sat" = 5, "sun" = 6)
+
+?recode
+
+instacart_data %>% 
+  distinct(order_dow)
 ```
 
 ## Part 2: EDA - Describe the data
@@ -159,21 +159,53 @@ Then, do or answer the following (commenting on the results of each):
 * How many aisles are there, and which aisles are the most items ordered from?
 
 ```{r}
+instacart_data %>% 
+  distinct(aisle) %>% ##confirmed that aisles are distinct
+  nrow()
 
+instacart_data %>% 
+  group_by(aisle) %>% 
+  summarize(n_items = n()) %>% 
+  arrange(desc(n_items)) %>% 
+  pull(aisle) %>% 
+  head(5)
 ```
 
 * Make a plot that shows the number of items ordered in each aisle. Order aisles 
 sensibly, and organize your plot so others can read it.
 
 ```{r}
+instacart_data %>% 
+  group_by(aisle) %>% 
+  summarize(n_items = n()) %>% 
+  arrange(desc(n_items)) %>% 
+  ggplot(aes(x = aisle, y = n_items, color = aisle)) + 
+    geom_point()
 
+instacart_data %>% 
+  distinct(aisle)
+
+##Question - what type of plot? are we supposed to be able to show the name of the aisle and also how many items were ordered from it?
+
+##refactor -- get rid of all labels, provide table, and explain -- see the data for additional information
 ```
 
 * Make a table showing the most popular item aisles “baking ingredients”, “dog 
 food care”, and “packaged vegetables fruits”
 
 ```{r}
+instacart_data %>% 
+  group_by(aisle, product_name) %>% 
+  filter(aisle %in% c("baking ingredients", 
+                      "dog food care", 
+                      "packaged vegetables fruits")) %>%
+  summarize(n_items = n()) %>%
+  arrange(aisle, desc(n_items)) %>%
+  select(aisle, product_name) %>% 
+  spread(key = aisle, value = product_name)
 
+##Question - do we need to add anything else but n to the table?
+## largest number of items, top 5 or top 10
 ```
 
 * Make a table showing the mean hour of the day at which Pink Lady Apples and 
@@ -181,7 +213,16 @@ Coffee Ice Cream are ordered on each day of the week; format this table for
 human readers (i.e. produce a 2 x 7 table).
 
 ```{r}
+instacart_data %>% 
+  group_by(product_name, order_dow) %>% 
+  mutate(recode(order_dow, mon = '0', tue = 1, wed = 2, thu = 4, fri = 5, sat = 5, sun = 6)) %>% 
+  filter(product_name %in% c("Pink Lady Apple", "Coffee Ice Cream")) %>%
+  summarize(hour_of_day_mean = mean(order_hour_of_day, na.rm = TRUE)) %>% 
+  spread(key = order_dow, value = hour_of_day_mean)
 
+class(instacart_data$order_dow)
+
+##dow starts at monday? doesn't run if i recode dows
 ```
 
 # Problem 3
@@ -209,19 +250,51 @@ some key variables, and indicating the extent to which missing data is an issue.
 
 Then, do or answer the following (commenting on the results of each):
 
-* Do some data cleaning. Create separate variables for year, month, and day. Ensure observations for temperature, precipitation, and snowfall are given in reasonable 
-units. For snowfall, what are the most commonly observed values? Why?
+* Do some data cleaning. Create separate variables for year, month, and day. Ensure observations for temperature, precipitation, and snowfall are given in reasonable units. For snowfall, what are the most commonly observed values? Why?
 
 ```{r}
-
+noaa_data = 
+  ny_noaa %>% 
+  mutate(prcp = as.numeric(prcp), 
+         tmin = as.numeric(tmin),
+         tmax = as.numeric(tmax),
+         prcp = prcp / 10,
+         tmin = tmin / 10,
+         tmax = tmax / 10
+         ) %>% 
+  separate(date, into = c("year", "month", "day"), sep = "-")
 ```
+
+For snowfall, what are the most commonly observed values? Why?
+
+```{r}
+noaa_data %>% 
+  group_by(prcp) %>% 
+  summarize(n = n()) %>% 
+  arrange(desc(n)) %>% 
+  pull(prcp) %>% 
+  head(1)
+```
+EXPLAIN WHY
 
 * Make a two-panel plot showing the average temperature in January and in July in 
 each station across years. Is there any observable / interpretable structure? 
 Any outliers?
 
 ```{r}
+###############################################################################
+noaa_data %>% 
+  group_by(id) %>% 
+  filter(month %in% c("01", "07")) %>% 
+  mutate(avg_temp = (tmin + tmax) / 2) %>% 
+  summarize(temp_mean = mean()) %>% 
+  ggplot(noaa_data, aes(x = year, y = tmax, color = name)) + 
+  geom_point(se = FALSE)
+  
+noaa_data %>% 
+  distinct(id)
 
+##how do i show all 700-800 stations?
 ```
 
 * Make a two-panel plot showing (i) tmax vs tmin for the full dataset (note that 
@@ -230,6 +303,12 @@ distribution of snowfall values greater than 0 and less than 100 separately by
 year.
 
 ```{r}
+noaa_data %>% 
+  filter(prcp < 100, 
+         prcp > 0) %>% 
+ ggplot(aes(x = tmax, y = name)) + 
+  geom_density_ridges(scale = .85)
 
+class(noaa_data$prcp)
 ```
 
