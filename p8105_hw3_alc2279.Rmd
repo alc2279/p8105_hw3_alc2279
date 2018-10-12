@@ -103,18 +103,24 @@ brfss_data %>%
   ggplot(aes(x = year, y = n_locations, color = state)) + 
     geom_path() + 
     labs(
-      title = "Number of Resturant Health Inspections per State (2002 - 2010)",
+      title = "Number of Counties with Health Inspections (2002-2010)",
       x = "Year",
-      y = "Number of Observations",
+      y = "Number of Counties",
       caption = "Data from the BRFSS SMART 2010"
-    )
+    ) + 
+    theme(legend.position = "right") 
+ 
 
 ## table to help interpret plot
-brfss_data %>% 
+inspections_state_year = 
+  brfss_data %>% 
   group_by(year, state) %>% 
   summarize(n_locations = n_distinct(state_county)) %>% 
   arrange(desc(n_locations)) %>% 
-  head(20)
+  rename(Year = year, State = state, "Number of Counties" = n_locations) %>% 
+  head(12)
+
+knitr::kable(inspections_state_year)
 ```
 
 This plot shows that throughout the years, most states have less than 10 observations. There does appear to be a slight increase in observations; while in 2002, most states had less than 10 observations, in 2010, most states had less than 15 observations. 
@@ -126,13 +132,17 @@ There are a few states with consistently more observations throughout the years,
 deviation of the proportion of “Excellent” responses across locations in NY State.
 
 ```{r}
-brfss_data %>% 
+excellent_responses_data = 
+  brfss_data %>% 
   group_by(state_county) %>% 
   filter(year %in% c("2002", "2006", "2010"),
          state == "NY",
          response == "Excellent") %>%
   summarize(excellent_mean = mean(proportion, na.rm = TRUE), 
-            excellent_sd = sd(proportion, na.rm = TRUE))
+            excellent_sd = sd(proportion, na.rm = TRUE)) %>% 
+  rename("State and County" = state_county, "Mean of Excellent Ratings" = excellent_mean, "SD of Excellent Ratings" = excellent_sd)
+
+knitr::kable(excellent_responses_data)
 ```
 
 The nine counties in NY that have reported observations in 2002, 2006 and 2010 have a range of excellent proportions from 17.2 in Erie County to 27.5 in New York County. The counties with no standard deviation are those that only had observations in one year, so the mean is the mean proportion for only that one year. 
@@ -200,10 +210,16 @@ some key variables, and giving illstrative examples of observations.
 The instacart dataset has `r nrow(instacart_data)` rows and `r ncol(instacart_data)` columns in the data. Each row in the dataset includes information about one item that was included in an order. Variables for each include order information (the order in which it was added to the cart, the time/day that the order was placed, if it was a reorder, etc.) and information about the product (which aisle/department it falls in, the product name/id, etc.). Some key variables that I expect to use to further explore the data (not just in this homework) are the product aisle, when the order was placed, whether it was a reorder, and the order number (to look at what basekts look like). A question that I would be interested asking is, "Are items that placed first in to the basket nore likely to be reorder items than subsequent items placed in the basket?." Using the code below, I did a prelimarly inspection of this question and found that it does appear that items added to the cart first tend to be reorder items. 
 
 ```{r}
-instacart_data %>% 
+reorder_add_to_cart_order_data = 
+  instacart_data %>% 
   group_by(reordered, add_to_cart_order) %>% 
   summarize(n = n()) %>% 
-  spread(key = reordered, value = n)
+  spread(key = reordered, value = n) %>% 
+  rename("Add to Cart Order" = add_to_cart_order, "Not a Reordered Item" = "0", 
+         "Reordered Item" = "1") %>% 
+  head(5)
+
+knitr::kable(reorder_add_to_cart_order_data)
 ```
 
 
@@ -252,7 +268,7 @@ plot_items_per_aisle =
   ggplot(aes(x = aisle, y = n_items, color = aisle)) + 
     geom_point() + 
     theme(legend.position = "none", 
-          axis.text.x=element_blank()) + 
+          axis.text.x = element_blank()) + 
     labs(
         x = "Aisle",
         y = "Number of Items"
@@ -268,12 +284,12 @@ instacart_items_per_aisle =
   group_by(aisle) %>% 
   summarize(n_items = n()) %>%
   arrange(desc(n_items)) %>% 
-  rename(Aisle = aisle, "Number of Items" = n_items) %>% 
-  head(10)
+  rename(Aisle = aisle, "# of Items" = n_items) %>% 
+  head(12)
 
-table_for_plot = tableGrob(instacart_items_per_aisle)
+instacart_items_per_aisle_for_plot = tableGrob(instacart_items_per_aisle)
 
-grid.arrange(plot_items_per_aisle, table_for_plot, nrow=1, 
+grid.arrange(plot_items_per_aisle, instacart_items_per_aisle_for_plot, nrow=1, 
              top="Number of Items Ordered by Aisle")
 ```
 
@@ -285,7 +301,8 @@ food care”, and “packaged vegetables fruits”
 
 ### Response
 ```{r}
-instacart_data %>% 
+most_popular_items_data = 
+  instacart_data %>% 
   group_by(aisle, product_name) %>% 
   filter(aisle %in% c("baking ingredients", 
                       "dog food care", 
@@ -293,7 +310,10 @@ instacart_data %>%
   summarize(n_items = n()) %>%
   arrange(aisle, desc(n_items)) %>%
   filter(n_items == max(n_items)) %>% 
-  select(aisle, product_name)
+  select(Aisle = aisle, Product = product_name)
+
+knitr::kable(most_popular_items_data)
+
 ```
 
 The most popular items in the three specified aisle are found in the above table. Light brown sugar, snack sticks (chicken and rice recipe) and organic baby spinach are the most popular items in the baking, dog food and packaged vegetable/fruits aisle, respectively. 
@@ -305,11 +325,20 @@ human readers (i.e. produce a 2 x 7 table).
 
 ### Response
 ```{r}
-instacart_data %>% 
+library(lubridate)
+
+coffee_apple_data = 
+  instacart_data %>% 
   group_by(product_name, order_dow) %>% 
   filter(product_name %in% c("Pink Lady Apple", "Coffee Ice Cream")) %>%
   summarize(hour_of_day_mean = mean(order_hour_of_day, na.rm = TRUE)) %>% 
-  spread(key = order_dow, value = hour_of_day_mean)
+  spread(key = order_dow, value = hour_of_day_mean) %>% 
+  rename(Product = product_name)
+
+knitr::kable(coffee_apple_data)
+
+class(instacart$order_dow)
+?mdy_hms
 ```
 
 From Tuesday through Friday, coffee ice cream is ordered later in the day than pink lady apples, but from Saturday through Monday, pink lady apples are ordered later in the day. The earliest that either item is ordered is on Thursday at 8am (pink lady apples) and the latest that either item is ordered is on Saturday (pink lady apples). 
@@ -329,7 +358,7 @@ some key variables, and indicating the extent to which missing data is an issue.
 
 ```{r}
 library(p8105.datasets)
-nrow(noaa_data)
+noaa_data = ny_noaa
 ```
 
 ### Response
@@ -424,7 +453,7 @@ library(patchwork)
 tmin_tmax_plot = ggplot(noaa_data, aes(x = tmin, y = tmax)) + 
   stat_bin_hex (bins = 70) + 
   labs(
-    title = "Max and Min Temperature (1981 - 2010)",
+    title = "Max and Min Temperature (1981-2010)",
     x = "Minimum Temperature (Degrees Celsius)",
     y = "Maximum Temperature (Degrees Celsius)",
     caption = "Data from the NOAA")+ 
@@ -453,4 +482,4 @@ snow_plot = noaa_data %>%
 tmin_tmax_plot + snow_plot
 ```
 
-These two plots show the min/max temperatures and also the distribution of snowfall across all years. The main thing that I pull out of these two graphs is that the min/max temp and the snowfall are relatively consistent. As the minimum temperature increases, the maximum temperature also increases. The snowfall has also been extremly consistent for the last x years. Up until the last x years, it looks like the distribution of snowfall has changed slightly. I would be interested in exploring this more, specifically seeing if the temperatures have also been decreasing. 
+These two plots show the min/max temperatures and also the distribution of snowfall across all years. The main thing that I pull out of these two graphs is that the min/max temp and the snowfall are relatively consistent. As the minimum temperature increases, the maximum temperature also increases. The snowfall has also been extremly consistent for the last x years. Up until the last x years, it looks like the distribution of snowfall has changed slightly. I would be interested in exploring this more, specifically seeing if the temperatures have also been decreasing. It looks as though there is a wider section in the bottom left corner of the tmin/tmax plot, meaning that there may be some warmer temperatures overall. Further investigation would needed to be done to see if those warmer temperatures are coming from more recent years. 
