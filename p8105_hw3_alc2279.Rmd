@@ -134,18 +134,19 @@ deviation of the proportion of “Excellent” responses across locations in NY 
 ```{r}
 excellent_responses_data = 
   brfss_data %>% 
-  group_by(state_county) %>% 
+  group_by(year) %>% 
   filter(year %in% c("2002", "2006", "2010"),
          state == "NY",
          response == "Excellent") %>%
   summarize(excellent_mean = mean(proportion, na.rm = TRUE), 
             excellent_sd = sd(proportion, na.rm = TRUE)) %>% 
-  rename("State and County" = state_county, "Mean of Excellent Ratings" = excellent_mean, "SD of Excellent Ratings" = excellent_sd)
+  rename(Year = year, "Mean of Excellent Ratings" = excellent_mean, 
+         "SD of Excellent Ratings" = excellent_sd)
 
 knitr::kable(excellent_responses_data)
 ```
 
-The nine counties in NY that have reported observations in 2002, 2006 and 2010 have a range of excellent proportions from 17.2 in Erie County to 27.5 in New York County. The counties with no standard deviation are those that only had observations in one year, so the mean is the mean proportion for only that one year. 
+In 2002, 2006 and 2010, the range of mean excellent responses is 22.5 - 24.0. 2002 had the highest mean of excellent responses and 2006 had the lowest mean of excellent responses. In terms of spread, 2002 had the highest variability (4.5) in excellent proportions across the NY counties. While this year had the highest mean, it was also the most variable. 2010 did not have the highest or lowest mean excellent proportion ratings, but it had the tighest variation of 3.6. 
 
 ### Prompt
 * For each year and state, compute the average proportion in each response category 
@@ -325,20 +326,15 @@ human readers (i.e. produce a 2 x 7 table).
 
 ### Response
 ```{r}
-library(lubridate)
-
 coffee_apple_data = 
   instacart_data %>% 
   group_by(product_name, order_dow) %>% 
   filter(product_name %in% c("Pink Lady Apple", "Coffee Ice Cream")) %>%
   summarize(hour_of_day_mean = mean(order_hour_of_day, na.rm = TRUE)) %>% 
   spread(key = order_dow, value = hour_of_day_mean) %>% 
-  rename(Product = product_name)
+  rename("Most Popular Product" = product_name)
 
 knitr::kable(coffee_apple_data)
-
-class(instacart$order_dow)
-?mdy_hms
 ```
 
 From Tuesday through Friday, coffee ice cream is ordered later in the day than pink lady apples, but from Saturday through Monday, pink lady apples are ordered later in the day. The earliest that either item is ordered is on Thursday at 8am (pink lady apples) and the latest that either item is ordered is on Saturday (pink lady apples). 
